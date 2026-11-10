@@ -1,0 +1,26 @@
+name: Daily digest
+
+# 07:00 Asia/Riyadh (UTC+3, no DST) → 04:00 UTC.
+# Sends "what changed" per persona, max 3 bullets each with a link.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Send digest
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+        run: node scripts/call.mjs /internal/daily '{}'

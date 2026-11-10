@@ -1,0 +1,61 @@
+# Copy this file to <id>.yaml, fill it in, commit it, then run the "Seed" action.
+# Files starting with _ are ignored by the build.
+#
+# Rules of thumb:
+#   • bio + speaking_style decide whether it sounds like them.
+#   • known_biases must be real, documented criticisms, phrased neutrally.
+#   • source_feeds are the ONLY places its beliefs come from.
+#   • never paste quotes here: quotes arrive from sources, with dates and links.
+
+id: example_person                      # lowercase, a-z 0-9 underscore
+display_name: Example Person
+emoji: "🧪"
+bio: >
+  Who they are, what they built, and how they think. Two or three sentences.
+speaking_style: >
+  Cadence, vocabulary and habits of argument. How they open, hedge, or push back.
+core_values:
+  - First value
+  - Second value
+known_biases:
+  - Tends to overweight X
+  - Underweights Y
+topics_of_expertise:
+  - first domain
+  - second domain
+model_override: null                    # optional, must be a :free model id
+enabled: true
+
+source_feeds:
+  # Their name in the news, English + Arabic
+  - type: googlenews
+    query: '"Example Person"'
+    label: google-news-en
+  - type: googlenews
+    query: '"مثال شخص"'
+    label: google-news-ar
+
+  # A personal blog or company news page (tries RSS, then scrapes the index)
+  - type: blog
+    url: https://example.com/blog
+    label: personal-blog
+
+  # A YouTube channel by handle (transcripts added by the nightly Action)
+  - type: youtube
+    handle: "@example"
+    label: youtube-channel
+
+  # A podcast feed: show notes are stored as text
+  - type: podcast
+    url: https://example.com/feed.xml
+    label: podcast
+
+  # X/Twitter via your own RSSHub instance (optional)
+  - type: rsshub
+    route: /twitter/user/example
+    label: x-posts
+
+  # Any plain RSS/Atom feed
+  - type: rss
+    url: https://example.com/feed
+    label: rss

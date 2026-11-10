@@ -1,0 +1,81 @@
+name: Scout
+
+# Every 6 hours: fetch sources, dedupe, embed, extract beliefs.
+# Also runs on demand from the phone (Run workflow → optional persona id).
+#
+# It calls the Worker once per persona (not once for all) to stay well under
+# Cloudflare's per-invocation subrequest limit on the free plan.
+
+on:
+  schedule:
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      persona:
+        description: 'Persona id (blank = all enabled)'
+        required: false
+        default: ''
+      query:
+        description: 'Optional extra search query (like /dig)'
+        required: false
+        default: ''
+      max_docs:
+        description: 'Max new documents per persona'
+        required: false
+        default: '6'
+
+concurrency:
+  group: scout
+  cancel-in-progress: false
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve persona list
+        id: personas
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+          PERSONA: ${{ inputs.persona }}
+        run: |
+          if [ -n "$PERSONA" ]; then
+            echo "ids=$PERSONA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node scripts/call.mjs /internal/personas '' GET > personas.json
+          IDS=$(node -e '
+            const fs = require("fs");
+            const raw = fs.readFileSync("personas.json", "utf8");
+            const json = JSON.parse(raw.slice(raw.indexOf("{")));
+            console.log(json.personas.filter((p) => p.enabled).map((p) => p.id).join(" "));
+          ')
+          echo "ids=$IDS" >> "$GITHUB_OUTPUT"
+          echo "personas: $IDS"
+
+      - name: Run Scout per persona
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+          QUERY: ${{ inputs.query }}
+          MAX_DOCS: ${{ inputs.max_docs }}
+          IDS: ${{ steps.personas.outputs.ids }}
+        run: |
+          MAX=${MAX_DOCS:-6}
+          for id in $IDS; do
+            echo "── $id"
+            BODY=$(ID="$id" MAX_DOCS="$MAX" QUERY="$QUERY" node -e '
+              const body = { persona_ids: [process.env.ID], max_docs: Number(process.env.MAX_DOCS || 6) || 6 };
+              if (process.env.QUERY) body.query = process.env.QUERY;
+              process.stdout.write(JSON.stringify(body));
+            ')
+            node scripts/call.mjs /internal/scout "$BODY" || true
+            sleep 3
+          done

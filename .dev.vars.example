@@ -1,0 +1,30 @@
+# Copy to .dev.vars for LOCAL `wrangler dev` only.
+#
+# Production credentials live in GitHub → Settings → Secrets and variables → Actions
+# and are pushed to the Worker by the Setup workflow. Nothing here is committed.
+
+TELEGRAM_BOT_TOKEN=123456:AA...
+OPENROUTER_API_KEY=sk-or-v1-...
+CF_ACCOUNT_ID=xxxxxxxxxxxxxxxx
+CF_API_TOKEN=...
+ALLOWED_TELEGRAM_USER_ID=123456789
+
+# Shared secret for /internal/* endpoints called from GitHub Actions
+INTERNAL_TOKEN=some-long-random-string
+
+# Public base URL of the deployed worker (no trailing slash)
+PUBLIC_BASE_URL=https://council.you.workers.dev
+
+# Optional
+TELEGRAM_WEBHOOK_SECRET=
+MINIAPP_ORIGIN=
+MINIAPP_DEV_BYPASS=0
+RSSHUB_URL=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
+GOOGLE_DRIVE_FOLDER_ID=
+
+# Local testing only — point these at scripts/mock-llm.mjs
+# OPENROUTER_BASE_URL=http://127.0.0.1:8899/api/v1
+# CF_AI_BASE_URL=http://127.0.0.1:8899/ai/run

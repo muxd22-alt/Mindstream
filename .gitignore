@@ -1,0 +1,12 @@
+node_modules/
+dist/
+web/dist/
+.wrangler/
+.test/
+.dev.vars
+.env
+.env.local
+scripts/.secrets.json
+*.log
+.DS_Store
+Thumbs.db

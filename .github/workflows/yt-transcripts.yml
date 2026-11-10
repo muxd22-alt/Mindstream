@@ -1,0 +1,42 @@
+name: YouTube transcripts
+
+# Phase 3, optional. youtube-transcript-api style library needs Node and is often
+# blocked from datacentres — if it is, we log and exit 0 instead of failing the run.
+# Transcripts are appended to existing YouTube documents (the Worker re-chunks them).
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # 05:30 Riyadh
+  workflow_dispatch:
+    inputs:
+      persona:
+        description: 'Persona id (blank = all)'
+        required: false
+        default: ''
+      max:
+        description: 'Max videos per persona'
+        required: false
+        default: '4'
+
+jobs:
+  transcripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install transcript library
+        run: npm install --no-save youtube-transcript@1.2.1 || echo "install failed, will skip"
+
+      - name: Fetch transcripts
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+          PERSONA: ${{ inputs.persona }}
+          MAX: ${{ inputs.max }}
+        run: node scripts/yt-transcripts.mjs
+        continue-on-error: true

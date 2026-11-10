@@ -1,0 +1,51 @@
+name: Restore D1
+
+# Restores a SQL dump produced by the Backup workflow.
+# 1. Download the artifact from the Backup run, open it, copy the raw URL
+#    (or paste the file contents into a gist) and pass it as sql_url.
+# 2. Or commit the dump to this repo and pass its path (e.g. backup/council.sql).
+
+on:
+  workflow_dispatch:
+    inputs:
+      sql_url:
+        description: 'https:// URL of the .sql dump (artifact raw link or gist)'
+        required: false
+        default: ''
+      sql_path:
+        description: 'Path inside the repo, e.g. backup/council.sql'
+        required: false
+        default: ''
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Resolve D1 id
+        env:
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: node scripts/resolve-d1.mjs
+
+      - name: Fetch dump
+        if: ${{ inputs.sql_url != '' }}
+        run: |
+          mkdir -p backup
+          curl -fsSL "${{ inputs.sql_url }}" -o backup/restore.sql
+          wc -c backup/restore.sql
+
+      - name: Apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SQL_PATH: ${{ inputs.sql_path }}
+        run: |
+          FILE="${SQL_PATH:-backup/restore.sql}"
+          test -f "$FILE" || { echo "No dump found at $FILE"; exit 1; }
+          npx wrangler d1 execute council --remote --file "$FILE"

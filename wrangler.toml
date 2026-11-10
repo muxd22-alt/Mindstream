@@ -1,0 +1,43 @@
+name = "council"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Workers AI — free multilingual embeddings (bge-m3, 1024 dims)
+[ai]
+binding = "AI"
+
+# D1 — free SQLite. Create it once with:
+#   npx wrangler d1 create council
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "council"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# The Mini App (web/dist) is served by this same Worker at /app.
+# One deploy, one URL, no CORS.
+[assets]
+directory = "./web/dist"
+binding = "ASSETS"
+
+# One cron every minute drives the job queue (debates, Scout, daily digest).
+# The webhook returns 200 instantly and a queued job is picked up here, so
+# long LLM work never depends on a single request staying alive.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# Ordered fallback list of FREE OpenRouter models. On 429/5xx/error the next one is used.
+MODELS = "nvidia/nemotron-3-ultra-550b-a55b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free,xingchen-agi/xing4.0-29b-a4b:free,liquid/lfm-2.5-2.6b:free"
+EMBED_MODEL = "@cf/baai/bge-m3"
+
+# Optional public knobs (safe to leave as-is)
+RECENCY_HALF_LIFE_DAYS = "90"
+PERSONA_WORD_LIMIT = "120"
+MAX_DOCS_PER_SCOUT_RUN = "6"
+SCOUT_MAX_CHUNKS_PER_DOC = "12"
+# Set to "1" only if you explicitly allow paid models in MODELS.
+ALLOW_PAID_MODELS = "0"
