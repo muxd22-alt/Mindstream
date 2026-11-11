@@ -118,6 +118,22 @@ jobs:
           npm run assets
           npx wrangler deploy
 
+      - name: Wait for the Worker route
+        if: ${{ inputs.mode == 'full' }}
+        env:
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS "$PUBLIC_BASE_URL/health" >/dev/null; then
+              echo "Worker route is ready."
+              exit 0
+            fi
+            echo "Worker route not ready yet ($attempt/12)."
+            sleep 5
+          done
+          echo "Worker route did not become ready in 60 seconds."
+          exit 1
+
       - name: Seed personas
         if: ${{ inputs.mode == 'full' || inputs.mode == 'seed' }}
         env:
