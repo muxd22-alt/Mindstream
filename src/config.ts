@@ -6,10 +6,11 @@ import { Db, parseJson } from './db/client';
  * only exists so /status is never empty. Every entry is a ":free" model.
  */
 export const DEFAULT_MODELS = [
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'nvidia/nemotron-3.5-lightning:free',
   'google/gemma-4-31b-it:free',
   'google/gemma-4-26b-a4b-it:free',
+  'thinkingmachines/inkling-2-small:free',
+  'nvidia/nemotron-3.5-super-vl:free',
+  'recursive/flint-v1.0:free',
   'liquid/lfm-3-1.7b:free',
 ];
 

@@ -30,9 +30,9 @@ binding = "ASSETS"
 crons = ["* * * * *"]
 
 [vars]
-# Ordered fallback list of FREE OpenRouter models. On 429/5xx/error the next one is used.
-# Order: strongest → fastest → lighter, matching the models this account already runs.
-MODELS = "nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3.5-lightning:free,google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,liquid/lfm-3-1.7b:free"
+# Ordered fallback list of FREE OpenRouter models — exactly the ones this account
+# can see, strongest first. On 429/5xx/error the next one is used.
+MODELS = "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,thinkingmachines/inkling-2-small:free,nvidia/nemotron-3.5-super-vl:free,recursive/flint-v1.0:free,liquid/lfm-3-1.7b:free"
 EMBED_MODEL = "@cf/baai/bge-m3"
 
 # Optional public knobs (safe to leave as-is)
