@@ -330,19 +330,24 @@ async function startCouncil(ctx: Ctx, chatId: number, userId: number, question: 
   const q = question.trim().slice(0, 800);
   if (!q) return;
 
-  const quota = await hasQuotaFor(ctx, 3);
-  if (!quota.ok) {
-    await sendMessage(ctx.env, chatId, `⚠️ ${escapeHtml(quota.note)}\nTry again tomorrow, or /status.`);
-    return;
-  }
-
   const personas = await listPersonas(ctx, { enabledOnly: true });
   if (!personas.length) {
     await sendMessage(ctx.env, chatId, 'No enabled personas. Run the Setup/Seed action or /persona import.');
     return;
   }
 
-  // Scout refreshes the three people before they speak.
+  // Live mode: one call per persona. Batch mode: one call for all of them.
+  const round1Calls = ctx.settings.parallel_round1 ? personas.length : 1;
+  const round2Calls = ctx.settings.rounds >= 2 ? 1 : 0;
+  const needed = round1Calls + round2Calls + 1;
+
+  const quota = await hasQuotaFor(ctx, needed);
+  if (!quota.ok) {
+    await sendMessage(ctx.env, chatId, `⚠️ ${escapeHtml(quota.note)}\nTry again tomorrow, or /status.`);
+    return;
+  }
+
+  // Scout refreshes the people before they speak.
   const refreshed = await preflight(ctx, chatId, personas);
 
   const lang = responseLanguage(q, ctx.settings);
@@ -363,7 +368,9 @@ async function startCouncil(ctx: Ctx, chatId: number, userId: number, question: 
       refreshed != null ? `<i>🔍 Scout added ${refreshed} new source(s) just now.</i>` : '',
       `<i>${escapeHtml(truncate(q, 200))}</i>`,
       '',
-      '<i>Round 1 — each persona is writing in parallel…</i>',
+      ctx.settings.parallel_round1
+        ? '<i>Round 1 — each persona is writing in parallel…</i>'
+        : '<i>Round 1 — the council is writing…</i>',
     ]
       .filter(Boolean)
       .join('\n'),

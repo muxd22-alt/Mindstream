@@ -51,7 +51,7 @@ export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
         headers: {
           authorization: `Bearer ${ctx.env.OPENROUTER_API_KEY}`,
           'content-type': 'application/json',
-          'HTTP-Referer': ctx.env.PUBLIC_BASE_URL || 'https://github.com/muxd22-alt/council',
+          'HTTP-Referer': ctx.env.PUBLIC_BASE_URL || 'https://github.com/muxd22-alt/Mindstream',
           'X-Title': 'Council',
         },
         body: JSON.stringify({

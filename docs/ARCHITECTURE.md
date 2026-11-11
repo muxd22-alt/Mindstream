@@ -40,10 +40,15 @@ You: /ask هل اشتري بيت بالتمويل العقاري؟
 | Pre-flight Scout refresh | **0** — headline feeds + embeddings only |
 | Daily digest | 0 |
 
-At ~50 free requests/day that is roughly 9 live debates/day with Scout still
-running every 6 hours. `/status` shows the real remaining number from
-`GET /api/v1/key`; nothing is hard-coded. Switch **Settings → Live mode → Off**
-for the cheaper 3-request path.
+At **1,000 free-model requests/day** (the allowance an account gets after a
+$10 top-up; 50/day without one) that is roughly **200 live debates/day**, well
+past what a person can read. Scout still runs every 6 hours. The free tier also
+rate-limits to about 20 requests/minute, which the sequential stages stay under.
+
+`/status` shows the real remaining number from `GET /api/v1/key`
+(`data.free_model_daily_requests`); nothing is hard-coded, so the same build
+works on a 50/day account and a 1,000/day one. Switch **Settings → Live mode →
+Off** for the cheaper 3-request path.
 
 ## Why it survives the free tier
 

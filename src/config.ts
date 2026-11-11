@@ -7,10 +7,10 @@ import { Db, parseJson } from './db/client';
  */
 export const DEFAULT_MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'google/gemma-4-31b-it:free',
   'nvidia/nemotron-3.5-lightning:free',
-  'xingchen-agi/xing4.0-29b-a4b:free',
-  'liquid/lfm-2.5-2.6b:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'liquid/lfm-3-1.7b:free',
 ];
 
 export const DEFAULT_SETTINGS: Settings = {

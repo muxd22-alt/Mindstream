@@ -46,7 +46,7 @@ Nothing here needs a laptop. **Termux** is only for the optional CLI path.
 
 ```bash
 pkg install nodejs git -y
-git clone https://github.com/muxd22-alt/council.git
+git clone https://github.com/muxd22-alt/Mindstream.git
 cd council
 npm install
 ```

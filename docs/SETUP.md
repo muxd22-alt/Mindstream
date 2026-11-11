@@ -8,6 +8,10 @@ except to add people (see the main README).
 `scripts/check-secrets.mjs` first and refuses to deploy if anything is missing,
 so you always get a clear checklist instead of a broken bot.
 
+A $10 OpenRouter top-up raises the free-model allowance to **1,000 requests/day**
+instead of 50. Council reads the real number from OpenRouter (`/status`) rather
+than assuming either.
+
 ---
 
 ## 1. Telegram — **Telegram app**
@@ -105,7 +109,7 @@ Every one of them reads credentials from GitHub Secrets only.
 ## Local development (optional) — **Termux or laptop**
 
 ```bash
-git clone https://github.com/muxd22-alt/council.git
+git clone https://github.com/muxd22-alt/Mindstream.git
 cd council
 npm install
 cp .dev.vars.example .dev.vars     # only for local wrangler dev
