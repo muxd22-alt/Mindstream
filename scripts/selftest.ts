@@ -6,6 +6,7 @@ import { SEED_PERSONAS } from '../src/generated/personas';
 import { chunkText } from '../src/ai/chunk';
 import { encodeVector, decodeVector, cosine, recencyWeight } from '../src/ai/embed';
 import { extractJson, oneOf, asArray } from '../src/llm/json';
+import { isFatalLlmStatus } from '../src/llm/openrouter';
 import { renderPrompt, splitSystemUser } from '../src/prompts';
 import { resolveCitations } from '../src/agents/debate';
 import { buildAnonymousViews, parseRound1, parseScribe } from '../src/agents/debate';
@@ -79,6 +80,12 @@ async function main() {
     assert.equal(extractJson('not json at all'), null);
     assert.deepEqual(asArray({ rounds: [{ a: 1 }] }), [{ a: 1 }]);
     assert.equal(oneOf('YES', ['yes', 'no'] as const, 'no'), 'yes');
+  });
+
+  await test('only invalid OpenRouter credentials stop the model fallback chain', () => {
+    assert.equal(isFatalLlmStatus(401), true);
+    assert.equal(isFatalLlmStatus(403), false);
+    assert.equal(isFatalLlmStatus(429), false);
   });
 
   await test('citations are only kept when they match a retrieved source', () => {

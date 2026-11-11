@@ -66,12 +66,11 @@ export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
 
       const bodyText = await res.text();
       if (!res.ok) {
-        const retryable = res.status === 429 || res.status === 402 || res.status >= 500 || res.status === 404;
         attempts.push({ model, ok: false, status: res.status, error: brief(bodyText), ms: Date.now() - started });
-        if (res.status === 401 || res.status === 403) {
-          throw new FatalLlmError(`OpenRouter rejected the API key (${res.status}).`);
+        if (isFatalLlmStatus(res.status)) {
+          throw new FatalLlmError('OpenRouter rejected the API key (401).');
         }
-        if (retryable) continue;
+        // 403 can mean a model-specific moderation/policy block, not just a bad key.
         continue;
       }
 
@@ -115,6 +114,11 @@ export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
       .map((a) => `${a.model}: ${a.status ?? ''} ${a.error ?? ''}`.trim())
       .join(' | ')}`,
   );
+}
+
+/** Only 401 proves the credential is invalid; 403 can be a model/policy block. */
+export function isFatalLlmStatus(status: number): boolean {
+  return status === 401;
 }
 
 function orderModels(ctx: Ctx, override?: string | null): string[] {
