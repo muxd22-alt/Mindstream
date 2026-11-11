@@ -80,10 +80,10 @@ export default function SettingsTab({ initial, models, lastModel, onNotice }: Pr
             value={settings.parallel_round1 ? 'on' : 'off'}
             onChange={(e) => set('parallel_round1', e.target.value === 'on')}
           >
-            <option value="on">On — one call per persona, answers land one by one</option>
-            <option value="off">Off — one call for all three (cheaper)</option>
+            <option value="on">On — three separate first opinions (5 calls total)</option>
+            <option value="off">Off — one first-opinion call (3 calls total)</option>
           </select>
-          <span className="muted tiny">Live mode uses 3 requests for Round 1 instead of 1.</span>
+          <span className="muted tiny">Replies are still posted as separate Telegram messages; live mode makes each first opinion a separate model request.</span>
         </label>
 
         <label className="field">

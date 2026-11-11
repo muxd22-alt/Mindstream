@@ -43,7 +43,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.url?.endsWith('/key')) {
     return json(res, {
-      data: { label: 'mock', is_free_tier: true, free_model_daily_requests: 42, limit: null, usage: 8 },
+      data: { label: 'mock', is_free_tier: true, free_model_daily_requests: 1000, limit: null, usage: 8 },
     });
   }
 
@@ -60,6 +60,7 @@ function answer(system, user) {
   if (/round 1/i.test(system) && /one persona/i.test(system)) {
     return JSON.stringify(singleRound1(user));
   }
+  if (/blind peer review/i.test(system)) return JSON.stringify(peerReviews(user));
   if (/round 2/i.test(system)) return JSON.stringify({ replies: round2(user) });
   if (/round 1/i.test(system)) return JSON.stringify({ rounds: round1(user) });
   if (/scribe/i.test(system)) return JSON.stringify(scribe(user));
@@ -70,6 +71,7 @@ function answer(system, user) {
 
 function kindOf(system) {
   if (/round 1/i.test(system) && /one persona/i.test(system)) return 'round1-single';
+  if (/blind peer review/i.test(system)) return 'peer-review';
   if (/round 2/i.test(system)) return 'round2';
   if (/round 1/i.test(system)) return 'round1';
   if (/scribe/i.test(system)) return 'scribe';
@@ -114,9 +116,31 @@ function round2(user) {
   }));
 }
 
+function peerReviews(user) {
+  const blocks = [...user.matchAll(/^### REVIEWER ([a-z0-9_]+) —/gm)];
+  return {
+    reviews: blocks.map((match, i) => {
+      const start = match.index ?? 0;
+      const next = blocks[i + 1]?.index ?? user.length;
+      const block = user.slice(start, next);
+      const views = [...block.matchAll(/^### (V-[A-Z]) —/gm)].map((m) => m[1]);
+      return {
+        reviewer_id: match[1],
+        ranking: views.map((view_id, rank) => ({ view_id, rank: rank + 1, rationale: `Mock evidence review for ${view_id}.` })),
+        target_view_id: views[0] ?? '',
+        reply: `${match[1]} responds to the other views with a cited, concise rebuttal.`,
+        reaction: i === 0 ? 'push_back' : i === 1 ? 'agree' : 'change_mind',
+        answer: ['no', 'yes', 'depends'][i % 3],
+        cited_views: views.slice(0, 1),
+      };
+    }),
+  };
+}
+
 function scribe() {
   return {
     headline: 'A conditional yes, but the timing is contested.',
+    synthesis: 'The council sees a conditional case: ground the choice in verified financing terms and your expected time in the home, not a confident guess about future prices.',
     verdicts: [],
     agreements: ['All three tie the decision to long-run cost, not monthly payment.'],
     disagreements: ['Elon focuses on asset mobility; Sam on rates; Dario on downside risk.'],

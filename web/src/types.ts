@@ -42,8 +42,17 @@ export interface Verdict {
   top_reason: string;
 }
 
+export interface PeerReviewSummary {
+  personaId: string;
+  averageRank: number;
+  points: number;
+  judges: number;
+}
+
 export interface Scribe {
   headline: string;
+  synthesis: string;
+  peer_review: PeerReviewSummary[];
   verdicts: Verdict[];
   agreements: string[];
   disagreements: string[];

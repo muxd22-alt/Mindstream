@@ -7,7 +7,7 @@ import type {
   MessageRow,
   PersonaRow,
   Round1Item,
-  Round2Item,
+  PeerReviewItem,
   ScribeResult,
 } from '../types';
 import { addMessage, getDebate, getPersonas, listMessages, recordHashtags, updateDebate } from '../db/repo';
@@ -20,6 +20,7 @@ import { renderPersonaAnswer, renderPersonaReply, renderScribe } from '../telegr
 import { cleanHashtag, limitWords, uniqueBy } from '../util/text';
 import { defaultFooter, isSensitiveQuestion, safetyLine } from '../util/safety';
 import { buildNotebookPack } from './notebook';
+import { aggregatePeerReviews, blindViewMap, parsePeerReviews } from './peerReview';
 
 const STAGES = ['round1', 'round2', 'scribe', 'pack', 'done'] as const;
 type Stage = (typeof STAGES)[number];
@@ -149,6 +150,7 @@ export async function executeDebate(ctx: Ctx, debate: DebateRow): Promise<Execut
             inference: item.inference,
             model: res.model,
           });
+          await safeSend(ctx, d.chat_id, renderPersonaAnswer(p, item, lang));
         }
       }
 
@@ -167,44 +169,69 @@ export async function executeDebate(ctx: Ctx, debate: DebateRow): Promise<Execut
     d.stage = 'round2';
   }
 
-  // ---------------- Round 2 (/dig skips it: Round 1 + Scribe only)
+  // ---------------- Blind peer review + reply (/dig skips it)
   const wantsRound2 = ctx.settings.rounds >= 2 && d.mode !== 'dig';
   if (wantsRound2 && stageIndex(d.stage) <= stageIndex('round2')) {
+    d.state.viewMap ??= blindViewMap(personas.map((p) => p.id), d.id);
+    d.state.round2SentPersonaIds ??= [];
+    await updateDebate(ctx, d.id, { state: d.state, stage: 'round2' });
+
     if (!d.state.round2) {
+      const rendered = renderPrompt('peer_review', {
+        question: d.question,
+        language: lang === 'ar' ? 'Arabic' : 'English',
+        word_limit: ctx.settings.persona_word_limit,
+        reviewer_blocks: buildReviewerBlocks(personas, d.state.round1 ?? [], d.state.viewMap, d.state.blocks ?? {}),
+      });
+      const { system, user } = splitSystemUser(rendered);
       const res = await llm(ctx, {
-        messages: buildRoundMessages(d, personas, d.state.round1 ?? [], lang, ctx.settings.persona_word_limit),
-        label: 'round2',
-        temperature: 0.85,
-        maxTokens: 2600,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        label: 'peer_review',
+        temperature: 0.75,
+        maxTokens: 3200,
       });
       requests++;
       model = res.model;
-      d.state.round2 = parseRound2(res.text, personas, d.state.round1 ?? [], ctx.settings.persona_word_limit);
+      d.state.round2 = parsePeerReviews(
+        res.text,
+        personas,
+        d.state.viewMap,
+        d.state.round1 ?? [],
+        ctx.settings.persona_word_limit,
+      );
+      d.state.peerReviewAggregate = aggregatePeerReviews(d.state.round2, d.state.viewMap);
       await updateDebate(ctx, d.id, { state: d.state, model: res.model });
+    }
 
-      for (const item of d.state.round2) {
-        const p = personas.find((x) => x.id === item.personaId);
+    const messages = await listMessages(ctx, d.id);
+    for (const item of d.state.round2) {
+      const persona = personas.find((p) => p.id === item.personaId);
+      if (!persona) continue;
+      if (!messages.some((m) => m.round === 2 && m.persona_id === persona.id)) {
         await addMessage(ctx, {
           debate_id: d.id,
-          persona_id: item.personaId,
+          persona_id: persona.id,
           round: 2,
           role: 'persona',
           answer: item.answer,
           body: item.reply,
-          model: res.model,
+          citations: item.citations,
+          inference: item.inference,
+          model,
         });
-        if (p) await safeSend(ctx, d.chat_id, renderPersonaReply(p, item, lang, 2));
       }
-    } else if (!d.state.sent?.round2) {
-      for (const item of d.state.round2) {
-        const p = personas.find((x) => x.id === item.personaId);
-        if (p) await safeSend(ctx, d.chat_id, renderPersonaReply(p, item, lang, 2));
+      if (!d.state.round2SentPersonaIds.includes(persona.id)) {
+        await safeSend(ctx, d.chat_id, renderPersonaReply(persona, item, lang, 2));
+        d.state.round2SentPersonaIds = [...d.state.round2SentPersonaIds, persona.id];
+        await updateDebate(ctx, d.id, { state: d.state });
       }
-      d.state.sent = { ...(d.state.sent ?? {}), round2: true };
-      await updateDebate(ctx, d.id, { state: d.state, stage: 'scribe' });
-    } else {
-      await updateDebate(ctx, d.id, { stage: 'scribe' });
     }
+
+    d.state.sent = { ...(d.state.sent ?? {}), round2: true };
+    await updateDebate(ctx, d.id, { state: d.state, stage: 'scribe' });
     d.stage = 'scribe';
   }
 
@@ -281,34 +308,66 @@ function buildSingleMessages(ctx: Ctx, debate: DebateRow, persona: PersonaRow, b
   ];
 }
 
-function buildRoundMessages(
-  debate: DebateRow,
-  personas: PersonaRow[],
+export function buildAnonymousViews(
   round1: Round1Item[],
-  lang: 'ar' | 'en',
-  wordLimit: number,
-) {
-  const round1Block = round1
-    .map((r) => {
-      const p = personas.find((x) => x.id === r.personaId);
-      return `### ${p?.display_name ?? r.personaId} — ${r.answer.toUpperCase()}\n${r.reasoning}`;
+  viewMap: Record<string, string>,
+): string {
+  return Object.entries(viewMap)
+    .map(([viewId, authorId]) => {
+      const item = round1.find((r) => r.personaId === authorId);
+      if (!item) return '';
+      const citations = item.citations.length
+        ? item.citations.map((c) => `  - ${c.title}${c.date ? ` (${c.date})` : ''} — ${c.url}`).join('\n')
+        : '  - No stored source; the view is marked as inference.';
+      return `### ${viewId} — ${item.answer.toUpperCase()}${item.inference ? ' · INFERENCE' : ''}\n${item.reasoning}\nSOURCES:\n${citations}`;
     })
+    .filter(Boolean)
     .join('\n\n');
+}
 
-  const rendered = renderPrompt('round2', {
-    question: debate.question,
-    language: lang === 'ar' ? 'Arabic' : 'English',
-    word_limit: wordLimit,
-    round1_block: round1Block,
-    persona_blocks: personas
-      .map((p) => debate.state.blocks?.[p.id] ?? `### ${p.id} — ${p.display_name}`)
-      .join('\n\n'),
-  });
-  const { system, user } = splitSystemUser(rendered);
-  return [
-    { role: 'system' as const, content: system },
-    { role: 'user' as const, content: user },
+function buildReviewerBlocks(
+  personas: PersonaRow[],
+  answers: Round1Item[],
+  viewMap: Record<string, string>,
+  blocks: Record<string, string>,
+): string {
+  return personas
+    .map((p) => [
+      `### REVIEWER ${p.id} — ${p.display_name}`,
+      blocks[p.id] ?? `### ${p.id} — ${p.display_name}`,
+      'ANONYMOUS PEER VIEWS:',
+      buildAnonymousViews(answers, viewMap),
+    ].join('\n'))
+    .join('\n\n--- NEXT BLIND REVIEWER ---\n\n');
+}
+
+function peerReviewBlock(debate: DebateRow, personas: PersonaRow[]): string {
+  const map = debate.state.viewMap ?? {};
+  const name = (id: string) => personas.find((p) => p.id === id)?.display_name ?? id;
+  const groups = [
+    ...(debate.state.round2?.length
+      ? [{ round: 2, viewMap: map, items: debate.state.round2, aggregate: debate.state.peerReviewAggregate ?? aggregatePeerReviews(debate.state.round2, map) }]
+      : []),
+    ...(debate.state.peerReviews ?? []),
   ];
+  const lines = ['BLIND PEER REVIEWS (ranks evaluate arguments, not people):'];
+  for (const group of groups) {
+    const groupName = (id: string) => name(id);
+    lines.push(`ROUND ${group.round} CONSENSUS (lower average rank is better):`);
+    group.aggregate.forEach((r, i) => {
+      lines.push(`${i + 1}. ${groupName(r.personaId)} — average rank ${r.averageRank} · ${r.judges} peer judge(s) · ${r.points} Borda points`);
+    });
+    lines.push(`ROUND ${group.round} INDIVIDUAL REVIEWS:`);
+    for (const review of group.items) {
+      lines.push(`${name(review.personaId)} ranked:`);
+      for (const rank of review.ranking ?? []) {
+        const authorId = group.viewMap[rank.viewId];
+        lines.push(`- #${rank.rank} ${rank.viewId} (${name(authorId ?? rank.viewId)}): ${rank.rationale}`);
+      }
+    }
+    lines.push('');
+  }
+  return groups.length ? lines.join('\n') : '(No valid peer rankings were returned.)';
 }
 
 // ---------------------------------------------------------------- scribe
@@ -341,6 +400,7 @@ export async function runScribe(
     question: debate.question,
     language: debate.lang === 'ar' ? 'Arabic' : 'English',
     transcript,
+    peer_review_block: peerReviewBlock(debate, personas),
     sources_block: sourcesBlock(
       [],
       uniqueBy(
@@ -419,25 +479,32 @@ export async function executeUserTurn(
 
   await addMessage(ctx, { debate_id: debate.id, round, role: 'user', body: text });
 
-  const rounds = messages.filter((m) => m.role === 'persona' && m.round !== 99);
-  const latest = rounds.slice(-personas.length);
-  const priorBlock = latest
-    .map((m) => {
-      const p = personas.find((x) => x.id === m.persona_id);
-      return `${p?.display_name ?? m.persona_id} (${m.answer ?? '—'}): ${m.body}`;
-    })
-    .join('\n\n');
+  const previousRound = Math.max(1, ...messages.filter((m) => m.role === 'persona' && m.round !== 99).map((m) => m.round));
+  const latest = messages.filter((m) => m.role === 'persona' && m.round === previousRound);
+  const previousAnswers = answersFromMessages(latest);
+  return runPeerReviewTurn(ctx, debate, personas, round, previousAnswers, text);
+}
 
-  // Refresh context for the new message, keeping the original question in play.
-  const { blocks } = await ensureBlocks(ctx, debate, personas, `${debate.question} ${text}`);
+async function runPeerReviewTurn(
+  ctx: Ctx,
+  debate: DebateRow,
+  personas: PersonaRow[],
+  round: number,
+  previousAnswers: Round1Item[],
+  userText?: string,
+): Promise<{ model: string; requests: number }> {
+  const query = `${debate.question} ${userText ?? ''}`.trim();
+  const { blocks } = await ensureBlocks(ctx, debate, personas, query);
   const state: DebateState = { ...debate.state, blocks };
-
-  const rendered = renderPrompt('round2', {
-    question: debate.question,
+  const viewMap = blindViewMap(personas.map((p) => p.id), `${debate.id}:${round}`);
+  const reviewerQuestion = userText
+    ? `${debate.question}\n\nUSER'S LATEST FOLLOW-UP:\n${userText}`
+    : `${debate.question}\n\nContinue the debate by responding to the previous round's arguments. There is no new user message.`;
+  const rendered = renderPrompt('peer_review', {
+    question: reviewerQuestion,
     language: debate.lang === 'ar' ? 'Arabic' : 'English',
     word_limit: ctx.settings.persona_word_limit,
-    round1_block: `${priorBlock}\n\nTHE USER HAS NOW SAID:\n"${text}"\n\nRespond directly to the user, and to each other where relevant.`,
-    persona_blocks: personas.map((p) => blocks[p.id] ?? `### ${p.id} — ${p.display_name}`).join('\n\n'),
+    reviewer_blocks: buildReviewerBlocks(personas, previousAnswers, viewMap, blocks),
   });
   const { system, user } = splitSystemUser(rendered);
 
@@ -446,12 +513,12 @@ export async function executeUserTurn(
       { role: 'system', content: system },
       { role: 'user', content: user },
     ],
-    label: 'user_turn',
-    temperature: 0.8,
-    maxTokens: 2400,
+    label: `peer-review:${round}`,
+    temperature: 0.75,
+    maxTokens: 3200,
   });
 
-  const items = parseRound2(res.text, personas, state.round1 ?? [], ctx.settings.persona_word_limit);
+  const items = parsePeerReviews(res.text, personas, viewMap, previousAnswers, ctx.settings.persona_word_limit);
   for (const item of items) {
     await addMessage(ctx, {
       debate_id: debate.id,
@@ -460,20 +527,33 @@ export async function executeUserTurn(
       role: 'persona',
       answer: item.answer,
       body: item.reply,
+      citations: item.citations,
+      inference: item.inference,
       model: res.model,
     });
     const p = personas.find((x) => x.id === item.personaId);
     if (p) await safeSend(ctx, debate.chat_id, renderPersonaReply(p, item, debate.lang, round));
   }
 
-  await updateDebate(ctx, debate.id, { state: { ...state, extra: [...(state.extra ?? []), { round, items }] } });
+  const aggregate = aggregatePeerReviews(items, viewMap);
+  state.extra = [...(state.extra ?? []), { round, items }];
+  state.peerReviews = [...(state.peerReviews ?? []), { round, viewMap, items, aggregate }];
+  await updateDebate(ctx, debate.id, { state });
 
-  // The last agent always closes the turn.
   const fresh = await getDebateFor(ctx, debate.id, state);
-  const { scribe } = await runScribe(ctx, fresh);
+  const { scribe, model } = await runScribe(ctx, fresh);
   await sendScribe(ctx, fresh, scribe, personas);
+  return { model, requests: 2 };
+}
 
-  return { model: res.model, requests: 2 };
+function answersFromMessages(messages: MessageRow[]): Round1Item[] {
+  return messages.filter((m) => m.persona_id).map((m) => ({
+    personaId: m.persona_id!,
+    answer: m.answer ?? 'depends',
+    reasoning: m.body,
+    citations: m.citations ?? [],
+    inference: m.inference,
+  }));
 }
 
 async function getDebateFor(ctx: Ctx, id: string, state: DebateState): Promise<DebateRow> {
@@ -487,32 +567,9 @@ export async function executeExtraRound(ctx: Ctx, debate: DebateRow): Promise<{ 
   const personas = (await getPersonas(ctx, debate.persona_ids)).filter((p) => p.enabled);
   const messages = await listMessages(ctx, debate.id);
   const round = Math.max(2, ...messages.map((m) => (m.round === 99 ? 0 : m.round))) + 1;
-
-  const res = await llm(ctx, {
-    messages: buildRoundMessages(debate, personas, debate.state.round1 ?? [], debate.lang, ctx.settings.persona_word_limit),
-    label: `extra:${round}`,
-    temperature: 0.85,
-    maxTokens: 2600,
-  });
-
-  const items = parseRound2(res.text, personas, debate.state.round1 ?? [], ctx.settings.persona_word_limit);
-  for (const item of items) {
-    await addMessage(ctx, {
-      debate_id: debate.id,
-      persona_id: item.personaId,
-      round,
-      role: 'persona',
-      answer: item.answer,
-      body: item.reply,
-      model: res.model,
-    });
-    const p = personas.find((x) => x.id === item.personaId);
-    if (p) await safeSend(ctx, debate.chat_id, renderPersonaReply(p, item, debate.lang, round));
-  }
-
-  const state = { ...debate.state, extra: [...(debate.state.extra ?? []), { round, items }] };
-  await updateDebate(ctx, debate.id, { state });
-  return { model: res.model, requests: 1 };
+  const previousRound = Math.max(1, ...messages.filter((m) => m.role === 'persona' && m.round !== 99).map((m) => m.round));
+  const previousAnswers = answersFromMessages(messages.filter((m) => m.role === 'persona' && m.round === previousRound));
+  return runPeerReviewTurn(ctx, debate, personas, round, previousAnswers);
 }
 
 /** /end — final summary + a fresh pack, then close the thread. */
@@ -572,40 +629,19 @@ export function parseRound1(
   });
 }
 
-export function parseRound2(
-  raw: string,
-  personas: PersonaRow[],
-  round1: Round1Item[],
-  wordLimit: number,
-): Round2Item[] {
-  const parsed = extractJson<unknown>(raw);
-  const arr = asArray<Record<string, unknown>>(parsed);
-  const byId = new Map(arr.map((item) => [str(item.persona_id ?? item.personaId ?? item.id), item]));
-
-  return personas.map((p) => {
-    const item = byId.get(p.id);
-    const prev = round1.find((r) => r.personaId === p.id);
-    const reply = limitWords(str(item?.reply ?? item?.reasoning ?? item?.text), wordLimit);
-    return {
-      personaId: p.id,
-      reply: reply || (prev ? prev.reasoning : '…'),
-      reaction: oneOf(item?.reaction, ['agree', 'push_back', 'change_mind'] as const, 'push_back'),
-      answer: oneOf(item?.answer, ['yes', 'no', 'depends'] as const, prev?.answer ?? 'depends'),
-    };
-  });
-}
-
 export function parseScribe(raw: string, debate: DebateRow, personas: PersonaRow[], lang: 'ar' | 'en'): ScribeResult {
   const parsed = extractJson<Record<string, unknown>>(raw) ?? {};
   const verdictSrc = asArray<Record<string, unknown>>(parsed.verdicts);
   const round1 = debate.state.round1 ?? [];
+  const latestPeerReviews = debate.state.peerReviews?.at(-1)?.items ?? debate.state.round2 ?? [];
 
   const verdicts = personas.map((p) => {
     const found = verdictSrc.find((v) => str(v.persona_id ?? v.personaId ?? v.id) === p.id);
     const fromRound1 = round1.find((r) => r.personaId === p.id);
+    const fromLatestReply = latestPeerReviews.find((r) => r.personaId === p.id);
     return {
       persona_id: p.id,
-      answer: oneOf(found?.answer ?? fromRound1?.answer, ['yes', 'no', 'depends'] as const, 'depends'),
+      answer: oneOf(found?.answer ?? fromLatestReply?.answer ?? fromRound1?.answer, ['yes', 'no', 'depends'] as const, 'depends'),
       top_reason: str(found?.top_reason ?? found?.reason ?? found?.topReason).slice(0, 240),
     };
   });
@@ -640,6 +676,8 @@ export function parseScribe(raw: string, debate: DebateRow, personas: PersonaRow
 
   return {
     headline: str(parsed.headline).slice(0, 200),
+    synthesis: str(parsed.synthesis) || str(parsed.headline) || verdicts.map((v) => v.top_reason).filter(Boolean).join(' '),
+    peer_review: debate.state.peerReviews?.at(-1)?.aggregate ?? debate.state.peerReviewAggregate ?? [],
     verdicts,
     agreements: (Array.isArray(parsed.agreements) ? parsed.agreements : []).map((s) => str(s)).filter(Boolean).slice(0, 3),
     disagreements: (Array.isArray(parsed.disagreements) ? parsed.disagreements : [])

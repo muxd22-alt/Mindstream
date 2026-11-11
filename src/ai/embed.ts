@@ -34,7 +34,7 @@ export async function embedOne(ctx: Ctx, text: string): Promise<number[]> {
 async function embedBatch(ctx: Ctx, texts: string[]): Promise<number[][]> {
   const model = embedModel(ctx);
 
-  if (ctx.env.AI) {
+  if (ctx.env.AI && !ctx.env.CF_AI_BASE_URL) {
     try {
       const res = (await ctx.env.AI.run(model, { text: texts } as never)) as unknown as { data?: number[][] };
       if (Array.isArray(res?.data) && res.data.length === texts.length) return res.data;

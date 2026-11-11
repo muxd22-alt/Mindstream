@@ -494,6 +494,19 @@ ol {
 .scribe-head h3 {
   font-size: 15px;
 }
+.scribe-synthesis {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+}
+.peer-ranks {
+  margin: 4px 0 0;
+}
+.peer-ranks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0;
+}
 .verdicts {
   display: grid;
   gap: 8px;

@@ -5,9 +5,9 @@
 | Agent | When | What you see |
 |---|---|---|
 | 🔍 **Scout** | Before you speak, and every 6 hours | "Scout · 4 new sources across 3 personas" |
-| 🚀 **Elon** · 🧭 **Sam** · 🔬 **Dario** | Round 1, in parallel | Each answer lands as its own message, the moment it is written |
-| Same three | Round 2 | They quote each other, agree, push back, or change their mind |
-| 📝 **Scribe** | After every exchange and on `/end` | Verdict, agreements, disagreements, next steps, 5 hashtags |
+| 🚀 **Elon** · 🧭 **Sam** · 🔬 **Dario** | Round 1 | One model call returns three persona answers; Telegram posts each separately |
+| Same three | Blind review + reply | Each reviewer ranks anonymous `V-A`/`V-B`/`V-C` views, then replies in character |
+| 📝 **Scribe** | After every exchange and on `/end` | Unblinds aggregate ranks and writes the final synthesis, next steps and hashtags |
 | 📓 **NotebookLM pack** | End of every debate | A `.md` file and `sources.txt` in the chat |
 
 The thread is live: a follow-up message continues the same conversation for 90
@@ -19,10 +19,10 @@ You: /ask هل اشتري بيت بالتمويل العقاري؟
 🚀 Elon      · NO        (cites 2 sources)
 🧭 Sam       · DEPENDS   (cites 1 source)
 🔬 Dario     · NO        (inference — nothing stored)
-🚀 Elon      · pushes back, names Sam's rate assumption
-🧭 Sam       · changes mind, depends
-🔬 Dario     · agrees with Sam's new condition
-📝 Scribe    · verdict table · 5 hashtags · next steps
+🚀 Elon      · blind rank + pushes back on View B
+🧭 Sam       · blind rank + changes mind
+🔬 Dario     · blind rank + adds a condition
+📝 Scribe    · unblinds ranks · synthesis · 5 hashtags · next steps
 📓 council-2026-11-10-a1b2c3.md + sources.txt
 ```
 
@@ -30,25 +30,41 @@ You: /ask هل اشتري بيت بالتمويل العقاري؟
 
 | Action | OpenRouter requests |
 |---|---|
-| `/ask` (live mode, default) | **5** — 3 parallel Round 1 + Round 2 + Scribe |
-| `/ask` (batch mode, setting off) | **3** — one Round 1 + Round 2 + Scribe |
-| Follow-up message | 2 — replies + Scribe |
+| `/ask` (default) | **3** — Round 1 + blind review/replies + Scribe |
+| `/ask` (separate first opinions enabled) | **5** — 3 first opinions + blind review/replies + Scribe |
+| Follow-up message | 2 — blind review/replies + Scribe |
 | `/end` | 1 — Scribe |
-| `/dig` | 2 — Round 1 (parallel) + Scribe, no belief extraction |
+| `/dig` | 2 — Round 1 + Scribe, no peer review or belief extraction |
 | `/chat` | 1 |
 | Scout run | 1 per persona (beliefs batched over up to 4 documents) |
 | Pre-flight Scout refresh | **0** — headline feeds + embeddings only |
 | Daily digest | 0 |
 
 At **1,000 free-model requests/day** (the allowance an account gets after a
-$10 top-up; 50/day without one) that is roughly **200 live debates/day**, well
-past what a person can read. Scout still runs every 6 hours. The free tier also
-rate-limits to about 20 requests/minute, which the sequential stages stay under.
+$10 top-up; 50/day without one) the default three-call flow allows at most ~333
+debates/day before Scout and other projects use the shared key. Scout preflight
+uses zero OpenRouter calls. `/status` reports the live remaining count.
 
 `/status` shows the real remaining number from `GET /api/v1/key`
 (`data.free_model_daily_requests`); nothing is hard-coded, so the same build
-works on a 50/day account and a 1,000/day one. Switch **Settings → Live mode →
-Off** for the cheaper 3-request path.
+works on a 50/day account and a 1,000/day one. **Settings → separate first
+opinions** raises the initial round from one call to three (5 total).
+
+## Karpathy's LLM Council — what we adapted
+
+The upstream project uses independent first responses, blind peer rankings of
+anonymized answers, then a Chairman synthesis. Council adapts this as separate
+persona messages, `V-A`/`V-B`/`V-C` aliases with author labels omitted from the
+review views, deterministic average-rank/Borda aggregation, and the Scribe as the
+final synthesizer. Each reviewer ranks every view; their own submission is
+excluded from the aggregate. Source: [Karpathy's orchestration](https://github.com/karpathy/llm-council/blob/master/backend/council.py).
+
+**Trade-off:** to preserve the original ≤4-request acceptance target, the
+default Stage 2 asks one LLM request to produce separately framed reviews for
+each persona. This is simulated blind prompt-level review, not independent-model
+voting; the LLM could theoretically infer an author from writing style. The
+optional separate-first-opinions setting costs two more calls, but does not add
+one provider request per reviewer.
 
 ## Why it survives the free tier
 

@@ -86,11 +86,54 @@ export async function buildNotebookPack(
     }
   }
 
+  const reviewGroups = [
+    ...(debate.state.round2?.length
+      ? [{ round: 2, viewMap: debate.state.viewMap ?? {}, items: debate.state.round2, aggregate: debate.state.peerReviewAggregate ?? [] }]
+      : []),
+    ...(debate.state.peerReviews ?? []),
+  ];
+  for (const group of reviewGroups) {
+    lines.push(`## Round ${group.round} blind peer review`);
+    lines.push('');
+    lines.push('Ranks evaluate anonymous arguments, not their authors.');
+    lines.push('');
+    if (group.aggregate.length) {
+      lines.push('| Rank | Persona | Average rank | Judges | Borda points |');
+      lines.push('|---:|---|---:|---:|---:|');
+      group.aggregate.forEach((r, i) => {
+        lines.push(`| ${i + 1} | ${nameOf(r.personaId)} | ${r.averageRank} | ${r.judges} | ${r.points} |`);
+      });
+      lines.push('');
+    }
+    for (const review of group.items) {
+      lines.push(`### ${nameOf(review.personaId)}'s review`);
+      for (const r of review.ranking ?? []) {
+        const authorId = group.viewMap[r.viewId];
+        lines.push(`- #${r.rank} ${r.viewId}${authorId ? ` (${nameOf(authorId)})` : ''}: ${r.rationale}`);
+      }
+      lines.push('');
+    }
+  }
+
   if (scribe) {
     lines.push('## Scribe summary');
     lines.push('');
     if (scribe.headline) {
       lines.push(`**${scribe.headline}**`);
+      lines.push('');
+    }
+    if (scribe.synthesis) {
+      lines.push(scribe.synthesis);
+      lines.push('');
+    }
+    if (scribe.peer_review?.length) {
+      lines.push('### Blind peer review (arguments ranked, not people)');
+      lines.push('');
+      lines.push('| Rank | Persona | Average rank | Peer judges | Borda points |');
+      lines.push('|---:|---|---:|---:|---:|');
+      scribe.peer_review.forEach((r, i) => {
+        lines.push(`| ${i + 1} | ${nameOf(r.personaId)} | ${r.averageRank} | ${r.judges} | ${r.points} |`);
+      });
       lines.push('');
     }
     lines.push('| Persona | Answer | Top reason |');

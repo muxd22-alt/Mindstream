@@ -232,5 +232,5 @@ insert into settings (key, value, updated_at) values
   ('persona_word_limit', '120', '2024-01-01T00:00:00.000Z'),
   ('language', '"auto"', '2024-01-01T00:00:00.000Z'),
   ('max_docs_per_scout_run', '6', '2024-01-01T00:00:00.000Z'),
-  ('parallel_round1', 'true', '2024-01-01T00:00:00.000Z')
+  ('parallel_round1', 'false', '2024-01-01T00:00:00.000Z')
 on conflict (key) do nothing;

@@ -1,6 +1,6 @@
 import { PROMPTS } from '../generated/prompts';
 
-export type PromptName = 'round1' | 'round2' | 'scribe' | 'beliefs' | 'chat' | 'persona_draft';
+export type PromptName = 'round1' | 'round1_single' | 'peer_review' | 'scribe' | 'beliefs' | 'chat' | 'persona_draft';
 
 /** Replace {{var}} placeholders. Unknown placeholders are left visible on purpose. */
 export function renderPrompt(name: PromptName | string, vars: Record<string, string | number | null | undefined>): string {

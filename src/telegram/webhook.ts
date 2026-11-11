@@ -687,6 +687,8 @@ async function statusCommand(ctx: Ctx, chatId: number): Promise<void> {
   const model = (await lastSuccessfulModel(ctx)) ?? ctx.models[0] ?? 'n/a';
   const scout = await scoutStatus(ctx);
   const queued = await queuedCount(ctx);
+  const enabledPersonas = scout.perPersona.filter((p) => p.enabled).length;
+  const debateCalls = (ctx.settings.parallel_round1 ? enabledPersonas : 1) + (ctx.settings.rounds >= 2 ? 1 : 0) + 1;
 
   const lines = [
     '📊 <b>Council status</b>',
@@ -695,7 +697,7 @@ async function statusCommand(ctx: Ctx, chatId: number): Promise<void> {
     `<b>Fallback chain</b>: ${ctx.models.map((m) => `<code>${escapeHtml(m)}</code>`).join(' → ')}`,
     `<b>Free requests left today</b>: ${escapeHtml(formatQuota(quota))}`,
     `<b>Queue</b>: ${queued} job(s) pending`,
-    `<b>Live mode</b>: ${ctx.settings.parallel_round1 ? 'parallel (3 calls, answers land one by one)' : 'batch (1 call, cheaper)'}`,
+    `<b>First-opinion mode</b>: ${ctx.settings.parallel_round1 ? 'separate per persona' : 'batched'} (${debateCalls} calls per Council debate)`,
     '',
     `<b>Personas</b> (${scout.perPersona.filter((p) => p.enabled).length} on)`,
     ...scout.perPersona.map(
@@ -770,6 +772,7 @@ function helpText(): string {
 }
 
 function settingsHint(ctx: Ctx): string {
+  const debateCalls = (ctx.settings.parallel_round1 ? 3 : 1) + (ctx.settings.rounds >= 2 ? 1 : 0) + 1;
   return [
     '⚙️ <b>Settings</b> live in the Mini App (menu button).',
     '',
@@ -777,7 +780,7 @@ function settingsHint(ctx: Ctx): string {
     `rounds: <b>${ctx.settings.rounds}</b>`,
     `words per persona: <b>${ctx.settings.persona_word_limit}</b>`,
     `language: <b>${ctx.settings.language}</b>`,
-    `live mode: <b>${ctx.settings.parallel_round1 ? 'on' : 'off'}</b>`,
+    `separate first opinions: <b>${ctx.settings.parallel_round1 ? 'on' : 'off'}</b> · about ${debateCalls} calls/debate`,
     '',
     `<code>${escapeHtml(ctx.models[0] ?? 'no model configured')}</code>`,
   ].join('\n');

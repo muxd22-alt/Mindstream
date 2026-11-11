@@ -69,9 +69,14 @@ export function renderPersonaReply(
   return [
     personaHeader(persona, lang, round),
     `<i>${reaction}</i> · <b>${answerChip(item.answer, lang)}</b>`,
+    item.ranking?.length
+      ? `<i>🕶 Blind review · ${item.ranking.map((r) => `${escapeHtml(r.viewId)} #${r.rank}${r.rationale ? ` — ${escapeHtml(r.rationale)}` : ''}`).join(' · ')}</i>`
+      : '',
     '',
     escapeHtml(item.reply),
-  ].join('\n');
+    item.citations?.length ? citationsBlock(item.citations, lang) : '',
+    item.inference ? inferenceNote(undefined, lang) : '',
+  ].filter(Boolean).join('\n');
 }
 
 export function renderScribe(
@@ -87,6 +92,22 @@ export function renderScribe(
   if (scribe.headline) parts.push(`<i>${escapeHtml(scribe.headline)}</i>`);
   parts.push(`<blockquote>${escapeHtml(question.slice(0, 300))}</blockquote>`);
   parts.push('');
+
+  if (scribe.synthesis) {
+    parts.push(`<b>${L('Scribe synthesis', 'خلاصة الكاتب')}</b>`);
+    parts.push(escapeHtml(scribe.synthesis));
+    parts.push('');
+  }
+
+  if (scribe.peer_review?.length) {
+    parts.push(`<b>${L('Blind peer review', 'مراجعة الأقران المجهولة')}</b> <i>${L('(arguments ranked, not people)', '(ترتيب الحجج لا الأشخاص)')}</i>`);
+    scribe.peer_review.forEach((r, i) => {
+      const p = byId.get(r.personaId);
+      const name = p ? `${p.emoji} ${p.display_name}` : r.personaId;
+      parts.push(`${i + 1}. ${escapeHtml(name)} — avg #${r.averageRank} · ${r.judges} ${L('peer judges', 'مراجعين')}`);
+    });
+    parts.push('');
+  }
 
   for (const v of scribe.verdicts) {
     const p = byId.get(v.persona_id);

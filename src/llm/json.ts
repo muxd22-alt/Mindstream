@@ -69,7 +69,7 @@ export function asArray<T>(v: unknown): T[] {
   if (Array.isArray(v)) return v as T[];
   if (v && typeof v === 'object') {
     const obj = v as Record<string, unknown>;
-    for (const key of ['rounds', 'replies', 'beliefs', 'items', 'results', 'data', 'verdicts']) {
+    for (const key of ['rounds', 'replies', 'reviews', 'ranking', 'beliefs', 'items', 'results', 'data', 'verdicts']) {
       if (Array.isArray(obj[key])) return obj[key] as T[];
     }
   }

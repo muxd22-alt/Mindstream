@@ -116,10 +116,35 @@ export interface Round2Item {
   reply: string;
   reaction: 'agree' | 'push_back' | 'change_mind';
   answer: Answer;
+  targetViewId?: string;
+  ranking?: PeerRanking[];
+  citations?: Citation[];
+  inference?: boolean;
+}
+
+export interface PeerRanking {
+  viewId: string;
+  rank: number;
+  rationale: string;
+}
+
+export interface PeerReviewItem extends Round2Item {
+  ranking: PeerRanking[];
+  citations: Citation[];
+  inference: boolean;
+}
+
+export interface PeerReviewSummary {
+  personaId: string;
+  averageRank: number;
+  points: number;
+  judges: number;
 }
 
 export interface ScribeResult {
   headline: string;
+  synthesis: string;
+  peer_review: PeerReviewSummary[];
   verdicts: { persona_id: string; answer: Answer; top_reason: string }[];
   agreements: string[];
   disagreements: string[];
@@ -150,10 +175,20 @@ export interface DebateRow {
 
 export interface DebateState {
   round1?: Round1Item[];
-  round2?: Round2Item[];
+  round2?: PeerReviewItem[];
   extra?: { round: number; items: Round2Item[] }[];
   /** persona_id → rendered prompt block (brief + sources), reused across rounds */
   blocks?: Record<string, string>;
+  /** Anonymous view alias → author id, revealed only to the Scribe after reviews. */
+  viewMap?: Record<string, string>;
+  peerReviewAggregate?: PeerReviewSummary[];
+  round2SentPersonaIds?: string[];
+  peerReviews?: {
+    round: number;
+    viewMap: Record<string, string>;
+    items: PeerReviewItem[];
+    aggregate: PeerReviewSummary[];
+  }[];
   scribe?: ScribeResult;
   sent?: { round1?: boolean; round2?: boolean; scribe?: boolean; pack?: boolean };
   error?: string;

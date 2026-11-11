@@ -199,7 +199,7 @@ export default function DebateTab({ personas, onNotice, onRefreshBoot }: Props) 
           }}
         />
         <div className="row between">
-          <span className="muted tiny">{question.length}/800 · 3 model requests</span>
+          <span className="muted tiny">{question.length}/800 · 3 calls default, 5 in live mode</span>
           <button onClick={() => void ask()} disabled={!question.trim() || busy}>
             {busy ? 'Sending…' : 'Ask council'}
           </button>
@@ -349,12 +349,32 @@ function ScribePanel({
   byId: Map<string, Persona>;
   onDig: (tag: string) => void;
 }) {
+  const peerReview = scribe.peer_review ?? [];
   return (
     <section className="panel scribe">
       <div className="scribe-head">
         <h3>📋 Scribe</h3>
         {scribe.headline && <p className="muted small">{scribe.headline}</p>}
       </div>
+
+      {scribe.synthesis && <p className="scribe-synthesis">{scribe.synthesis}</p>}
+
+      {peerReview.length > 0 && (
+        <div className="block">
+          <h4>Blind peer review · arguments, not people</h4>
+          <ol className="peer-ranks">
+            {peerReview.map((r) => {
+              const p = byId.get(r.personaId);
+              return (
+                <li key={r.personaId}>
+                  <span>{p?.emoji} {p?.display_name ?? r.personaId}</span>
+                  <span className="muted tiny">avg #{r.averageRank} · {r.judges} judges</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
 
       <div className="verdicts">
         {scribe.verdicts.map((v) => {

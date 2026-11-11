@@ -22,7 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   models_override: null,
   max_docs_per_scout_run: 6,
   max_chunks_per_doc: 12,
-  parallel_round1: true,
+  parallel_round1: false,
 };
 
 export function intOr(v: string | undefined, fallback: number): number {
@@ -90,7 +90,7 @@ export async function loadSettings(db: Db, env: Env): Promise<Settings> {
     models_override: modelsOverride,
     max_docs_per_scout_run: Math.min(20, Math.max(1, num('max_docs_per_scout_run', intOr(env.MAX_DOCS_PER_SCOUT_RUN, 6)))),
     max_chunks_per_doc: Math.min(60, Math.max(1, num('max_chunks_per_doc', intOr(env.SCOUT_MAX_CHUNKS_PER_DOC, 12)))),
-    parallel_round1: stored.parallel_round1 === undefined ? true : toBool(stored.parallel_round1),
+    parallel_round1: stored.parallel_round1 === undefined ? false : toBool(stored.parallel_round1),
   };
 }
 
