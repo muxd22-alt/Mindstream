@@ -1,0 +1,24 @@
+{
+  "persona_id": "sam",
+  "documents": [
+    {
+      "url": "https://blog.samaltman.com/the-gentle-singularity",
+      "title": "The Gentle Singularity",
+      "kind": "blog",
+      "lang": "en",
+      "published_at": "2025-06-10T00:00:00.000Z",
+      "content": "In this essay, Sam Altman argues that AI agents are beginning to perform real cognitive work and predicts large changes to software work and productivity. He also acknowledges that whole classes of jobs may disappear, while arguing that people will adapt, find new things to do, and benefit from abundant intelligence and energy. This is a paraphrase of Altman's own public essay, not a direct quote.",
+      "beliefs": [
+        {
+          "topic": "AI automation and employment",
+          "source_url": "https://blog.samaltman.com/the-gentle-singularity",
+          "stance": "Altman expects AI to remove whole classes of jobs but believes society will adapt, create new work, and gain from much cheaper intelligence and higher productivity.",
+          "quote_or_paraphrase": "Paraphrase of Altman's June 2025 essay: he expects some job classes to disappear, while people adapt and new kinds of work and abundance emerge.",
+          "is_quote": false,
+          "confidence": 0.94,
+          "stated_on": "2025-06-10"
+        }
+      ]
+    }
+  ]
+}

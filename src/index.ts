@@ -5,6 +5,7 @@ import { handleUpdate, type TgUpdate } from './telegram/webhook';
 import { verifyInternalToken, verifyTelegramSecret } from './telegram/guard';
 import { drainQueue } from './jobs/runner';
 import { syncSeedPersonas } from './personas/loader';
+import { syncSeedKnowledge } from './agents/seedKnowledge';
 import { runScout, runDailyDigest } from './agents/scout';
 import { ingestExternalDocs } from './agents/ingest';
 import { getWebhookInfo, setChatMenuButton, setMyCommands, setWebhook } from './telegram/api';
@@ -82,8 +83,9 @@ export default {
 
         if (path === '/internal/seed') {
           const body = req.method === 'POST' ? ((await req.json()) as Record<string, unknown>) : {};
-          const result = await syncSeedPersonas(c, { force: body.force === true });
-          return jsonResponse({ ok: true, result });
+          const personas = await syncSeedPersonas(c, { force: body.force === true });
+          const knowledge = await syncSeedKnowledge(c);
+          return jsonResponse({ ok: true, result: { personas, knowledge } });
         }
 
         if (path === '/internal/ingest') {

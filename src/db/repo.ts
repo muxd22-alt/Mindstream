@@ -348,6 +348,14 @@ export async function getDocument(ctx: Ctx, id: string) {
   return ctx.db.first<Record<string, unknown>>('select * from documents where id = ?', id);
 }
 
+export async function getDocumentByHash(ctx: Ctx, personaId: string, urlHash: string): Promise<{ id: string } | null> {
+  return ctx.db.first<{ id: string }>(
+    'select id from documents where persona_id = ? and url_hash = ?',
+    personaId,
+    urlHash,
+  );
+}
+
 export async function getChunksForDocument(ctx: Ctx, documentId: string) {
   return ctx.db.all<{ id: string; content: string; chunk_index: number }>(
     'select id, content, chunk_index from chunks where document_id = ? order by chunk_index asc',

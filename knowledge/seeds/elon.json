@@ -1,0 +1,24 @@
+{
+  "persona_id": "elon",
+  "documents": [
+    {
+      "url": "https://english.alarabiya.net/News/united-states/2025/11/20/elon-musk-predicts-future-where-work-is-optional-and-money-is-irrelevant-",
+      "title": "Elon Musk predicts future where work is optional and money is irrelevant",
+      "kind": "rss",
+      "lang": "en",
+      "published_at": "2025-11-20T00:00:00.000Z",
+      "content": "At the U.S.-Saudi Investment Forum in November 2025, Elon Musk predicted that work could become optional in 10 to 20 years if AI and robotics continue to improve. Al Arabiya reported that he compared optional work to hobbies and said money could eventually become less relevant as AI and robots make goods and services abundant. This is a paraphrase of reported public remarks, not a direct quote.",
+      "beliefs": [
+        {
+          "topic": "AI automation and employment",
+          "source_url": "https://english.alarabiya.net/News/united-states/2025/11/20/elon-musk-predicts-future-where-work-is-optional-and-money-is-irrelevant-",
+          "stance": "Musk predicts that continued AI and robotics progress could make work optional within 10 to 20 years and make money less relevant through abundance.",
+          "quote_or_paraphrase": "Paraphrase of Musk's reported 2025 U.S.-Saudi Investment Forum remarks about optional work and AI-driven abundance.",
+          "is_quote": false,
+          "confidence": 0.72,
+          "stated_on": "2025-11-20"
+        }
+      ]
+    }
+  ]
+}

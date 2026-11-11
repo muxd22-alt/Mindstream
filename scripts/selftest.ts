@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { parsePersonaYaml, personaToYaml } from '../src/personas/loader';
 import { SEED_PERSONAS } from '../src/generated/personas';
+import { SEED_KNOWLEDGE } from '../src/generated/knowledge';
 import { chunkText } from '../src/ai/chunk';
 import { encodeVector, decodeVector, cosine, recencyWeight } from '../src/ai/embed';
 import { extractJson, oneOf, asArray } from '../src/llm/json';
@@ -50,6 +51,28 @@ async function main() {
       assert.ok(p.display_name, 'display_name');
       assert.ok(p.source_feeds.length >= 2, `${p.id} feeds`);
       assert.ok(p.bio.length > 20, `${p.id} bio`);
+    }
+  });
+
+  await test('local knowledge seed contains cited, dated beliefs for all three personas', () => {
+    const seeds = Object.values(SEED_KNOWLEDGE).map((raw) => JSON.parse(raw) as {
+      persona_id: string;
+      documents: { url: string; title: string; published_at: string; content: string; beliefs: { topic: string; stance: string; source_url: string; stated_on: string; is_quote: boolean; confidence: number }[] }[];
+    });
+    assert.deepEqual(seeds.map((s) => s.persona_id).sort(), ['dario', 'elon', 'sam']);
+    for (const seed of seeds) {
+      assert.ok(seed.documents.length > 0, `${seed.persona_id} documents`);
+      for (const doc of seed.documents) {
+        assert.ok(doc.url.startsWith('https://'));
+        assert.ok(doc.title && doc.published_at && doc.content.length > 80);
+        assert.ok(doc.beliefs.length > 0);
+        for (const belief of doc.beliefs) {
+          assert.equal(belief.source_url, doc.url);
+          assert.equal(belief.stated_on, doc.published_at.slice(0, 10));
+          assert.ok(belief.confidence >= 0 && belief.confidence <= 1);
+          assert.equal(belief.is_quote, false, 'local seed positions are paraphrases, never invented quotes');
+        }
+      }
     }
   });
 

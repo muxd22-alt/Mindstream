@@ -81,7 +81,20 @@ source_feeds:
 | `topics_of_expertise` | where they should sound credible |
 | `model_override` | optional `:free` model just for this person |
 | `enabled` | off = never speaks |
-| `source_feeds` | **the only places their beliefs come from** |
+| `source_feeds` | feeds Scout checks for fresh documents |
+
+### Baseline beliefs live locally too
+
+The first source-backed notes are committed under `knowledge/seeds/<id>.json`.
+Each one contains a short document excerpt, title/date/URL and paraphrased
+beliefs—never invented quotes. **Setup → Seed** embeds and imports these into
+D1, so the three default personas don't start with empty belief timelines. Scout
+then keeps adding fresher evidence. Seed is idempotent; running it again won't
+duplicate these documents or beliefs.
+
+When adding a new persona, you can also add `knowledge/seeds/<id>.json` in the
+same format to give it a cited starting point. If you omit it, `/update <id>`
+will gather and extract the initial beliefs from that persona's feeds.
 
 ### Feeds
 

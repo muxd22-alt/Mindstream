@@ -83,10 +83,11 @@ It runs, in order:
 2. `wrangler d1 migrations apply council --remote` — creates the schema.
 3. `wrangler secret bulk` — pushes every secret to the Worker.
 4. builds the Mini App, bundles prompts/personas, `wrangler deploy`.
-5. seeds `personas/*.yaml` into D1.
+5. seeds `personas/*.yaml` and the cited baseline in `knowledge/seeds/*.json` into D1.
 6. sets the Telegram webhook, command list and the **Council** menu button.
 
-Then open the bot → `/start` → `/update` (fills the knowledge base) → ask a question.
+Then open the bot → `/start` → `/update` (fetches fresher sources) → ask a question.
+The initial 3 source documents and beliefs are already in D1 from the local seed pack.
 
 ---
 
@@ -119,7 +120,7 @@ npm run dev
 
 ```bash
 npx wrangler d1 migrations apply council --local
-npm run selftest          # 24 logic tests, no keys, no network
+npm run selftest          # parsing, citations, seed data, HMAC; no keys required
 npm run typecheck
 ```
 

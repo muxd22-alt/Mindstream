@@ -114,6 +114,11 @@ RSS / Google News / blog / YouTube / podcast / RSSHub
 `beliefs` (with `superseded_at`) · `debates` · `messages` · `hashtags` ·
 `runs` (job queue + logs) · `settings` · `persona_drafts`.
 
+The repository's `knowledge/seeds/*.json` files are a small, cited baseline pack
+for Elon, Sam and Dario. **Setup → Seed** imports those documents, chunks and
+paraphrased beliefs into D1 without OpenRouter calls; Scout adds newer evidence
+afterward. Re-running seed is idempotent.
+
 ## Ground rules in code
 
 | Rule | Enforcement |

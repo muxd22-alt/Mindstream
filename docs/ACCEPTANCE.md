@@ -4,6 +4,10 @@ Run these after setup. Each maps to a hard requirement.
 
 ## 1. Arabic debate, correct shape
 
+After `Setup → full` (or `Setup → seed`), `/personas` in the Mini App should
+show an initial cited document and belief for each default persona—not `0 docs ·
+0 beliefs`. These are paraphrases tied to stored sources; no quotes are invented.
+
 ```
 /ask هل اشتري بيت بالتمويل العقاري؟
 ```

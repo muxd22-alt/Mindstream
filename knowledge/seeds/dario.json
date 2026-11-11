@@ -1,0 +1,24 @@
+{
+  "persona_id": "dario",
+  "documents": [
+    {
+      "url": "https://darioamodei.com/machines-of-loving-grace",
+      "title": "Machines of Loving Grace: How AI Could Transform the World for the Better",
+      "kind": "blog",
+      "lang": "en",
+      "published_at": "2024-10-11T00:00:00.000Z",
+      "content": "In his essay on the upside of powerful AI, Dario Amodei argues that major benefits depend on successfully managing AI risks. In the section on work and meaning, he discusses how human contributions could shift as AI performs more tasks, while warning that automation may create economic-development challenges for countries that have not yet industrialized. This is a paraphrase of his public essay, not a direct quote.",
+      "beliefs": [
+        {
+          "topic": "AI automation and employment",
+          "source_url": "https://darioamodei.com/machines-of-loving-grace",
+          "stance": "Amodei sees major AI upside if risks are controlled, but warns automation could challenge economic development; human roles may shift rather than disappear uniformly.",
+          "quote_or_paraphrase": "Paraphrase of Amodei's essay: automation brings benefits and economic-development risks, and remaining human contributions may expand as AI takes over more tasks.",
+          "is_quote": false,
+          "confidence": 0.91,
+          "stated_on": "2024-10-11"
+        }
+      ]
+    }
+  ]
+}

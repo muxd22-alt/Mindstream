@@ -40,6 +40,7 @@ async function main() {
 
   const personas = await readDirFiles('personas', '.yaml');
   const prompts = await readDirFiles('prompts', '.md');
+  const knowledge = await readDirFiles('knowledge/seeds', '.json');
 
   await writeFile(
     path.join(outDir, 'personas.ts'),
@@ -51,8 +52,13 @@ async function main() {
     asModule('// Source of truth: /prompts/*.md', 'PROMPTS', prompts),
     'utf8',
   );
+  await writeFile(
+    path.join(outDir, 'knowledge.ts'),
+    asModule('// Source of truth: /knowledge/seeds/*.json', 'SEED_KNOWLEDGE', knowledge),
+    'utf8',
+  );
 
-  console.log(`bundled ${personas.length} persona(s), ${prompts.length} prompt(s)`);
+  console.log(`bundled ${personas.length} persona(s), ${prompts.length} prompt(s), ${knowledge.length} knowledge seed(s)`);
 }
 
 main().catch((e) => {
