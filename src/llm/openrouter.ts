@@ -34,8 +34,8 @@ export class FatalLlmError extends Error {}
 
 /**
  * Ordered fallback across the MODELS list.
- * 429 / 402 / 5xx / empty output / network error → try the next model.
- * 401 / 403 → abort: the API key itself is wrong.
+ * 403 / 429 / 5xx / empty output / network error → try the next model.
+ * 401 → abort because the API key itself is invalid.
  */
 export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
   const models = orderModels(ctx, opts.modelOverride);
@@ -58,7 +58,7 @@ export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
           model,
           messages: opts.messages,
           temperature: opts.temperature ?? 0.75,
-          max_tokens: opts.maxTokens ?? 2200,
+          max_completion_tokens: opts.maxTokens ?? 2200,
           provider: { sort: 'throughput' },
         }),
         signal: AbortSignal.timeout(timeoutMs),
@@ -84,9 +84,16 @@ export async function llm(ctx: Ctx, opts: LlmOptions): Promise<LlmResult> {
         continue;
       }
       const choice = parsed.choices?.[0];
-      const text = typeof choice?.message?.content === 'string' ? choice.message.content : '';
+      const text = extractCompletionText(choice?.message?.content, choice?.message?.refusal);
       if (!text.trim()) {
-        attempts.push({ model, ok: false, error: 'empty completion', ms: Date.now() - started });
+        const fields = choice?.message ? Object.keys(choice.message).join(',') : 'no message';
+        const tokens = parsed.usage?.completion_tokens;
+        attempts.push({
+          model,
+          ok: false,
+          error: `empty completion (finish_reason=${choice?.finish_reason ?? 'unknown'}, message_fields=${fields}, completion_tokens=${tokens ?? 'unknown'})`,
+          ms: Date.now() - started,
+        });
         continue;
       }
       attempts.push({ model, ok: true, ms: Date.now() - started });
@@ -121,6 +128,23 @@ export function isFatalLlmStatus(status: number): boolean {
   return status === 401;
 }
 
+/** OpenRouter assistant content can be plain text or an array of text blocks. */
+export function extractCompletionText(content: unknown, refusal: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (!part || typeof part !== 'object') return '';
+        const block = part as Record<string, unknown>;
+        return typeof block.text === 'string' ? block.text : typeof block.content === 'string' ? block.content : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+  return typeof refusal === 'string' ? refusal : '';
+}
+
 function orderModels(ctx: Ctx, override?: string | null): string[] {
   const list = [...ctx.models];
   if (override && list.includes(override)) {
@@ -134,7 +158,8 @@ function brief(s: string): string {
 }
 
 interface RawCompletion {
-  choices?: { message?: { content?: string }; finish_reason?: string }[];
+  choices?: { message?: { content?: unknown; refusal?: unknown }; finish_reason?: string }[];
+  usage?: { completion_tokens?: number };
   error?: unknown;
 }
 

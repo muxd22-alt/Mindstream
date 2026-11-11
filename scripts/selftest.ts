@@ -6,7 +6,7 @@ import { SEED_PERSONAS } from '../src/generated/personas';
 import { chunkText } from '../src/ai/chunk';
 import { encodeVector, decodeVector, cosine, recencyWeight } from '../src/ai/embed';
 import { extractJson, oneOf, asArray } from '../src/llm/json';
-import { isFatalLlmStatus } from '../src/llm/openrouter';
+import { extractCompletionText, isFatalLlmStatus } from '../src/llm/openrouter';
 import { renderPrompt, splitSystemUser } from '../src/prompts';
 import { resolveCitations } from '../src/agents/debate';
 import { buildAnonymousViews, parseRound1, parseScribe } from '../src/agents/debate';
@@ -86,6 +86,19 @@ async function main() {
     assert.equal(isFatalLlmStatus(401), true);
     assert.equal(isFatalLlmStatus(403), false);
     assert.equal(isFatalLlmStatus(429), false);
+  });
+
+  await test('OpenRouter text extraction accepts both string and block-array content', () => {
+    assert.equal(extractCompletionText('plain answer', null), 'plain answer');
+    assert.equal(
+      extractCompletionText([
+        { type: 'text', text: 'first block' },
+        { type: 'output_text', text: 'second block' },
+      ], null),
+      'first block\nsecond block',
+    );
+    assert.equal(extractCompletionText(null, 'The model refused.'), 'The model refused.');
+    assert.equal(extractCompletionText(null, null), '');
   });
 
   await test('citations are only kept when they match a retrieved source', () => {
